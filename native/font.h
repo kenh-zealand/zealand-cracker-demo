@@ -104,7 +104,8 @@ static const uint8_t FONT[96][7] = {
 };
 
 // Draw a single glyph into an SDL_Surface pixel buffer (32-bit ARGB)
-static inline void font_draw_char(uint32_t *pixels, int pitch_px,
+// screen_h is passed for bounds checking; pitch_px is used as screen width.
+static inline void font_draw_char(uint32_t *pixels, int pitch_px, int screen_h,
                                   int x, int y, char ch,
                                   int scale, uint32_t color)
 {
@@ -119,6 +120,7 @@ static inline void font_draw_char(uint32_t *pixels, int pitch_px,
                     for (int sx = 0; sx < scale; sx++) {
                         int px = x + col*scale + sx;
                         int py = y + row*scale + sy;
+                        if (px < 0 || px >= pitch_px || py < 0 || py >= screen_h) continue;
                         pixels[py * pitch_px + px] = color;
                     }
             }

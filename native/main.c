@@ -120,7 +120,7 @@ static void draw_hline(int y, uint32_t c) {
 static void draw_text(const char *text, int x, int y, int scale, uint32_t c) {
     int cx = x;
     for (const char *p = text; *p; p++) {
-        font_draw_char(pixels, pitch_px, cx, y, *p, scale, c);
+        font_draw_char(pixels, pitch_px, WIN_H, cx, y, *p, scale, c);
         cx += 6 * scale;
     }
 }
@@ -138,7 +138,7 @@ static void draw_glow_text(const char *text, int x, int y, int scale,
             if (dx == 0 && dy == 0) continue;
             int cx2 = x;
             for (const char *p = text; *p; p++) {
-                font_draw_char(pixels, pitch_px, cx2+dx, y+dy, *p, scale, glow_color);
+                font_draw_char(pixels, pitch_px, WIN_H, cx2+dx, y+dy, *p, scale, glow_color);
                 cx2 += 6 * scale;
             }
         }
@@ -328,7 +328,7 @@ static void draw_scroller(float dt) {
             float phase = sinf(cx * 0.009f + SDL_GetTicks() * 0.0018f) * 0.5f + 0.5f;
             uint8_t r = (uint8_t)(210 + 45 * phase);
             uint8_t g = (uint8_t)(140 + 60 * phase);
-            font_draw_char(pixels, pitch_px, (int)cx, (int)(base_y + wave),
+            font_draw_char(pixels, pitch_px, WIN_H, (int)cx, (int)(base_y + wave),
                            SCROLL_TEXT[i], sc, rgba(r, g, 0, 255));
         }
     }
