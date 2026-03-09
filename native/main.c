@@ -70,6 +70,9 @@ static float beat_visual  = 0.0f;   // smoothed beat for visuals
 static int   muted        = 0;
 static float master_vol   = 0.7f;
 
+// Click region of the mod-name button (updated each frame by draw_topbar)
+static SDL_Rect mod_btn_rect = {0, 0, 0, 0};
+
 // ── Colour helpers ────────────────────────────────────────────────
 static inline uint32_t rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
     return ((uint32_t)a << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
@@ -287,7 +290,15 @@ static void draw_topbar(const char *mod_label, int midx, int total) {
     snprintf(label, sizeof(label), "# %s  [%d/%d]", mod_label, midx+1, total);
     int lw = text_width(label, 1) + 16;
     int lx = WIN_W - lw - 12;
+    // Store clickable rect for mouse hit-test
+    mod_btn_rect.x = lx - 1; mod_btn_rect.y = 6;
+    mod_btn_rect.w = lw + 2; mod_btn_rect.h = TOPBAR_H - 14;
     fill_rect(lx-1, 6, lw+2, TOPBAR_H-14, rgba(255,200,0,30));
+    // Brighten box if mouse is hovering over it
+    int mx, my; SDL_GetMouseState(&mx, &my);
+    SDL_Point mpt = {mx, my};
+    if (SDL_PointInRect(&mpt, &mod_btn_rect))
+        fill_rect(lx-1, 6, lw+2, TOPBAR_H-14, rgba(255,200,0,40));
     fill_rect(lx-1, 6, lw+2, 1,            rgba(255,200,0,200));
     fill_rect(lx-1, TOPBAR_H-9, lw+2, 1,   rgba(255,200,0,200));
     fill_rect(lx-1, 6, 1, TOPBAR_H-14,     rgba(255,200,0,200));
@@ -473,6 +484,11 @@ int main(int argc, char *argv[]) {
                             ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
                         break;
                 }
+            }
+            if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
+                SDL_Point pt = { e.button.x, e.button.y };
+                if (SDL_PointInRect(&pt, &mod_btn_rect))
+                    load_mod((mod_idx + 1) % NUM_MODS);
             }
         }
 
