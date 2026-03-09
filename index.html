@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZEALAND BYTE DIVISION</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  background: #050010;
+  font-family: 'Courier New', Courier, monospace;
+  overflow: hidden;
+  user-select: none;
+}
+#ui { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Top bar ── */
+#topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px; height: 48px;
+  background: #03000e;
+  border-bottom: 2px solid #0088bb;
+  flex-shrink: 0;
+}
+#groupname {
+  font-size: 13px; letter-spacing: 6px; color: #00aadd;
+  text-shadow: 0 0 14px rgba(0,160,220,0.7);
+}
+#modname {
+  font-size: 11px; letter-spacing: 3px; color: #ffcc00;
+  border: 1px solid #ffcc00; padding: 3px 12px;
+  text-shadow: 0 0 8px rgba(255,200,0,0.6);
+  box-shadow: inset 0 0 6px rgba(255,200,0,0.1);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+#modname:hover {
+  background: rgba(255,200,0,0.12);
+  box-shadow: inset 0 0 12px rgba(255,200,0,0.25), 0 0 10px rgba(255,200,0,0.4);
+}
+#modname:active {
+  background: rgba(255,200,0,0.25);
+}
+
+/* ── Main canvas ── */
+#mainwrap {
+  flex: 1; border: 2px solid #0088bb; margin: 4px 4px 0;
+  position: relative; overflow: hidden; min-height: 0;
+}
+#maincanvas { display: block; width: 100%; height: 100%; }
+#asciibadge {
+  position: absolute; bottom: 10px; right: 10px;
+  border: 1px solid #00ff88; color: #00ff88;
+  font-size: 10px; letter-spacing: 3px; padding: 4px 10px;
+  background: rgba(0,0,0,0.7);
+  text-shadow: 0 0 8px rgba(0,255,136,0.7);
+  pointer-events: none;
+  animation: badgepulse 2.5s ease-in-out infinite;
+}
+@keyframes badgepulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+
+/* ── Scroller ── */
+#scrollwrap {
+  flex-shrink: 0; height: 58px; overflow: hidden;
+  border: 2px solid #0088bb; border-top: none; margin: 0 4px;
+  background: #020010;
+}
+#scrollcanvas { display: block; }
+
+/* ── Bottom panels ── */
+#panels { display: flex; gap: 4px; padding: 4px; flex-shrink: 0; height: 118px; }
+.panel { flex: 1; border: 1px solid #0088bb; background: #030010; padding: 8px 12px; overflow: hidden; }
+.ptitle { font-size: 10px; letter-spacing: 3px; color: #00aadd; margin-bottom: 3px; }
+.psep   { font-size: 10px; color: #004466; margin-bottom: 5px; }
+.pbody  { font-size: 10px; color: #00ff88; line-height: 1.7; letter-spacing: 1px; }
+
+@keyframes blink { 50%{ opacity:0 } }
+#modname.unstarted {
+  animation: blink 1s step-end infinite;
+  border-color: #00ccff; color: #00ccff;
+  text-shadow: 0 0 12px rgba(0,200,255,0.8);
+  box-shadow: inset 0 0 8px rgba(0,200,255,0.15), 0 0 8px rgba(0,200,255,0.3);
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="topbar">
+    <span id="groupname">ZEALAND &nbsp; BYTE &nbsp; DIVISION</span>
+    <span id="modname">LOADING...</span>
+  </div>
+  <div id="mainwrap">
+    <canvas id="maincanvas"></canvas>
+    <div id="asciibadge">100% ASCII POWER</div>
+  </div>
+  <div id="scrollwrap">
+    <canvas id="scrollcanvas"></canvas>
+  </div>
+  <div id="panels">
+    <div class="panel">
+      <div class="ptitle">ELITE STATUS REPORT</div>
+      <div class="psep">&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;</div>
+      <div class="pbody">
+        THIS RELEASE CRACKED AND FIXED<br>
+        BY ZEALAND BYTE DIVISION!<br>
+        100% WORKING &middot; NO TRAINERS
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">GREETS FLY TO:</div>
+      <div class="psep">&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;</div>
+      <div class="pbody">
+        RAZOR 1911 &middot; FAIRLIGHT &middot; SKIDROW<br>
+        FUTURE CREW &middot; PARADOX &middot; CLASS<br>
+        TRITON &middot; QUARTEX &middot; ECLIPSE
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+//  PIXEL FONT  — 5×7 glyphs, 8 bytes each (7 rows + 1 pad)
+//  Bit layout: bit4=col0(left) … bit0=col4(right)
+// ═══════════════════════════════════════════════════════════════
+const GLYPHS = {
+  ' ':[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0],
+  'A':[0x0E,0x11,0x11,0x1F,0x11,0x11,0x11,0],
+  'B':[0x1E,0x11,0x11,0x1E,0x11,0x11,0x1E,0],
+  'C':[0x0E,0x11,0x10,0x10,0x10,0x11,0x0E,0],
+  'D':[0x1E,0x11,0x11,0x11,0x11,0x11,0x1E,0],
+  'E':[0x1F,0x10,0x10,0x1E,0x10,0x10,0x1F,0],
+  'F':[0x1F,0x10,0x10,0x1E,0x10,0x10,0x10,0],
+  'G':[0x0E,0x11,0x10,0x13,0x11,0x11,0x0F,0],
+  'H':[0x11,0x11,0x11,0x1F,0x11,0x11,0x11,0],
+  'I':[0x0E,0x04,0x04,0x04,0x04,0x04,0x0E,0],
+  'J':[0x07,0x02,0x02,0x02,0x02,0x12,0x0C,0],
+  'K':[0x11,0x12,0x14,0x18,0x14,0x12,0x11,0],
+  'L':[0x10,0x10,0x10,0x10,0x10,0x10,0x1F,0],
+  'M':[0x11,0x1B,0x15,0x15,0x11,0x11,0x11,0],
+  'N':[0x11,0x19,0x15,0x13,0x11,0x11,0x11,0],
+  'O':[0x0E,0x11,0x11,0x11,0x11,0x11,0x0E,0],
+  'P':[0x1E,0x11,0x11,0x1E,0x10,0x10,0x10,0],
+  'Q':[0x0E,0x11,0x11,0x11,0x15,0x12,0x0D,0],
+  'R':[0x1E,0x11,0x11,0x1E,0x14,0x12,0x11,0],
+  'S':[0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E,0],
+  'T':[0x1F,0x04,0x04,0x04,0x04,0x04,0x04,0],
+  'U':[0x11,0x11,0x11,0x11,0x11,0x11,0x0E,0],
+  'V':[0x11,0x11,0x11,0x11,0x0A,0x0A,0x04,0],
+  'W':[0x11,0x11,0x11,0x15,0x15,0x0A,0x0A,0],
+  'X':[0x11,0x11,0x0A,0x04,0x0A,0x11,0x11,0],
+  'Y':[0x11,0x11,0x0A,0x04,0x04,0x04,0x04,0],
+  'Z':[0x1F,0x01,0x02,0x04,0x08,0x10,0x1F,0],
+  '0':[0x0E,0x11,0x13,0x15,0x19,0x11,0x0E,0],
+  '1':[0x04,0x0C,0x04,0x04,0x04,0x04,0x0E,0],
+  '2':[0x0E,0x11,0x01,0x06,0x08,0x10,0x1F,0],
+  '3':[0x1F,0x01,0x02,0x06,0x01,0x11,0x0E,0],
+  '4':[0x02,0x06,0x0A,0x12,0x1F,0x02,0x02,0],
+  '5':[0x1F,0x10,0x10,0x1E,0x01,0x01,0x1E,0],
+  '6':[0x06,0x08,0x10,0x1E,0x11,0x11,0x0E,0],
+  '7':[0x1F,0x01,0x02,0x04,0x04,0x04,0x04,0],
+  '8':[0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E,0],
+  '9':[0x0E,0x11,0x11,0x0F,0x01,0x11,0x0E,0],
+  '-':[0x00,0x00,0x00,0x1F,0x00,0x00,0x00,0],
+  '.':[0x00,0x00,0x00,0x00,0x00,0x04,0x00,0],
+  '!':[0x04,0x04,0x04,0x04,0x00,0x04,0x00,0],
+  '*':[0x00,0x15,0x0E,0x1F,0x0E,0x15,0x00,0],
+  '/':[0x01,0x02,0x04,0x08,0x10,0x00,0x00,0],
+  ':':[0x00,0x04,0x00,0x00,0x00,0x04,0x00,0],
+  '[':[0x0C,0x08,0x08,0x08,0x08,0x08,0x0C,0],
+  ']':[0x06,0x02,0x02,0x02,0x02,0x02,0x06,0],
+  '+':[0x00,0x04,0x04,0x1F,0x04,0x04,0x00,0],
+  '#':[0x0A,0x0A,0x1F,0x0A,0x1F,0x0A,0x0A,0],
+};
+
+function gfxChar(ctx, ch, x, y, sc, color) {
+  const g = GLYPHS[ch.toUpperCase()] ?? GLYPHS[' '];
+  ctx.fillStyle = color;
+  for (let r = 0; r < 7; r++) {
+    const bits = g[r];
+    if (!bits) continue;
+    for (let c = 0; c < 5; c++) {
+      if (bits & (0x10 >> c))
+        ctx.fillRect(x + c * sc | 0, y + r * sc | 0, sc, sc);
+    }
+  }
+}
+
+function gfxText(ctx, text, x, y, sc, color) {
+  let cx = x;
+  for (const ch of text.toUpperCase()) {
+    gfxChar(ctx, ch, cx, y, sc, color);
+    cx += 6 * sc;
+  }
+}
+
+const gfxWidth = (text, sc) => text.length * 6 * sc;
+
+// ═══════════════════════════════════════════════════════════════
+//  MOD FILE PARSER  (ProTracker / 4-channel .MOD)
+// ═══════════════════════════════════════════════════════════════
+function parseMod(u8) {
+  const str = (off, len) => {
+    let s = '';
+    for (let i = 0; i < len; i++) {
+      const c = u8[off + i];
+      if (!c) break;
+      if (c >= 32 && c < 127) s += String.fromCharCode(c);
+    }
+    return s.trim();
+  };
+
+  const title = str(0, 20);
+
+  // Read 31 instrument headers (30 bytes each, starting at offset 20)
+  const instruments = [];
+  for (let i = 0; i < 31; i++) {
+    const o = 20 + i * 30;
+    const rawFt = u8[o + 24] & 0x0F;
+    instruments.push({
+      name:         str(o, 22),
+      length:       ((u8[o+22] << 8) | u8[o+23]) * 2,
+      finetune:     rawFt > 7 ? rawFt - 16 : rawFt,
+      volume:       Math.min(64, u8[o+25]),
+      repeatStart:  ((u8[o+26] << 8) | u8[o+27]) * 2,
+      repeatLength: ((u8[o+28] << 8) | u8[o+29]) * 2,
+      data: null,
+    });
+  }
+
+  const songLength  = u8[950];
+  const orderTable  = Array.from(u8.subarray(952, 1080));
+  const numPatterns = Math.max(...orderTable.slice(0, songLength)) + 1;
+
+  // Patterns start at 1084; each pattern = 64 rows × 4 channels × 4 bytes
+  let offset = 1084;
+  const patterns = [];
+  for (let p = 0; p < numPatterns; p++) {
+    const rows = [];
+    for (let r = 0; r < 64; r++) {
+      const notes = [];
+      for (let c = 0; c < 4; c++) {
+        const b0=u8[offset++], b1=u8[offset++], b2=u8[offset++], b3=u8[offset++];
+        notes.push({
+          sample: (b0 & 0xF0) | (b2 >> 4),
+          period: ((b0 & 0x0F) << 8) | b1,
+          effect: ((b2 & 0x0F) << 8) | b3,
+        });
+      }
+      rows.push(notes);
+    }
+    patterns.push(rows);
+  }
+
+  // Sample data follows patterns
+  for (const inst of instruments) {
+    if (inst.length > 0) {
+      inst.data = new Float32Array(inst.length);
+      for (let i = 0; i < inst.length; i++) {
+        const v = u8[offset++];
+        inst.data[i] = (v > 127 ? v - 256 : v) / 128.0;
+      }
+    }
+  }
+
+  return { title, instruments, songLength, orderTable, patterns };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MOD PLAYER  (ProTracker-compatible, Web Audio API)
+// ═══════════════════════════════════════════════════════════════
+
+// Period table: 4 octaves × 12 semitones = 48 entries (finetune 0)
+const BASE_PERIODS = [
+  1712,1616,1524,1440,1356,1280,1208,1140,1076,1016, 960, 906,
+   856, 808, 762, 720, 678, 640, 604, 570, 538, 508, 480, 453,
+   428, 404, 381, 360, 339, 320, 302, 285, 269, 254, 240, 226,
+   214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113,
+];
+
+// C-2 reference: period 428 ≈ 8287 Hz  (used as AudioBuffer.sampleRate)
+const C2_PERIOD = 428;
+const C2_FREQ   = 8287;
+
+class ModPlayer {
+  constructor(actx) {
+    this.actx = actx;
+    this.mod  = null;
+
+    this.masterGain = actx.createGain();
+    this.masterGain.gain.value = 0.7;
+
+    this.analyser = actx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.analyser.smoothingTimeConstant = 0.8;
+    this._freqData = new Uint8Array(this.analyser.frequencyBinCount);
+    this.masterGain.connect(this.analyser);
+    this.analyser.connect(actx.destination);
+
+    // Amiga hardware panning: ch0=L, ch1=R, ch2=R, ch3=L
+    this.panning = [-0.7, 0.7, 0.7, -0.7];
+
+    this.channels = Array.from({ length: 4 }, () => ({
+      sample: 0, period: 0, volume: 64, finetune: 0,
+      activePeriod: 0,
+      portaTarget: 0, portaSpeed: 0,
+      vibratoPos: 0, vibratoSpeed: 0, vibratoDepth: 0,
+      effect: 0, effectParam: 0,
+      sampleOffset: 0,
+      noteDelay: 0, delayedPeriod: 0,
+      loopStart: 0, loopCount: -1,
+      node: null, gainNode: null,
+    }));
+
+    this.pos      = 0;   // order table index
+    this.row      = 0;   // pattern row
+    this.tick     = 0;   // tick within row
+    this.speed    = 6;   // ticks per row
+    this.tempo    = 125; // BPM
+
+    this.patternDelay = 0;
+    this.jumpPos  = -1;
+    this.jumpRow  = -1;
+
+    this.playing  = false;
+    this.nextTickTime = 0;
+    this._timer   = null;
+
+    this.sampleBuffers = [];
+
+    // Callbacks
+    this.onTrack = null;
+  }
+
+  // Returns 0..1 based on low-frequency (bass) energy
+  getBeat() {
+    this.analyser.getByteFrequencyData(this._freqData);
+    // Average first 6 bins (~bass range at 44100 Hz output)
+    let sum = 0;
+    for (let i = 0; i < 6; i++) sum += this._freqData[i];
+    return (sum / 6) / 255;
+  }
+
+  load(mod) {
+    this.stop();
+    this.mod = mod;
+
+    // Pre-build AudioBuffers for every sample at C2_FREQ sample-rate
+    this.sampleBuffers = Array(31).fill(null);
+    for (let i = 0; i < 31; i++) {
+      const inst = mod.instruments[i];
+      if (inst.data && inst.length > 0) {
+        const buf = this.actx.createBuffer(1, inst.data.length, C2_FREQ);
+        buf.getChannelData(0).set(inst.data);
+        this.sampleBuffers[i] = buf;
+      }
+    }
+    return this;
+  }
+
+  play() {
+    if (!this.mod) return;
+    this.stop();
+
+    this.pos = 0; this.row = 0; this.tick = 0;
+    this.speed = 6; this.tempo = 125;
+    this.patternDelay = 0; this.jumpPos = -1; this.jumpRow = -1;
+
+    for (const ch of this.channels) {
+      ch.sample = 0; ch.period = 0; ch.volume = 64; ch.finetune = 0;
+      ch.activePeriod = 0; ch.portaTarget = 0; ch.portaSpeed = 0;
+      ch.vibratoPos = 0; ch.vibratoSpeed = 0; ch.vibratoDepth = 0;
+      ch.effect = 0; ch.effectParam = 0; ch.sampleOffset = 0;
+      ch.noteDelay = 0; ch.loopStart = 0; ch.loopCount = -1;
+      ch.node = null; ch.gainNode = null;
+    }
+
+    this.playing = true;
+    this.nextTickTime = this.actx.currentTime + 0.05;
+    this._schedule();
+    return this;
+  }
+
+  stop() {
+    this.playing = false;
+    clearTimeout(this._timer);
+    for (const ch of this.channels) this._stopCh(ch);
+  }
+
+  setVolume(v) { this.masterGain.gain.value = Math.max(0, Math.min(1, v)); }
+
+  _stopCh(ch) {
+    if (ch.node) { try { ch.node.stop(0); } catch(e){} ch.node = null; }
+    if (ch.gainNode) { ch.gainNode.disconnect(); ch.gainNode = null; }
+  }
+
+  _tickDur() { return 2.5 / this.tempo; }
+
+  _schedule() {
+    if (!this.playing) return;
+    const now = this.actx.currentTime;
+    while (this.nextTickTime < now + 0.12) {
+      this._tick(this.nextTickTime);
+      this.nextTickTime += this._tickDur();
+    }
+    this._timer = setTimeout(() => this._schedule(), 40);
+  }
+
+  _tick(t) {
+    if (this.tick === 0) this._processRow(t);
+    else                  this._processFx(t);
+
+    this.tick++;
+    const total = this.speed * (this.patternDelay + 1);
+    if (this.tick >= total) {
+      this.tick = 0;
+      this.patternDelay = 0;
+      this._advance();
+    }
+  }
+
+  _advance() {
+    if (this.jumpPos >= 0) {
+      this.pos = this.jumpPos;
+      this.row = this.jumpRow;
+      this.jumpPos = -1; this.jumpRow = -1;
+    } else {
+      this.row++;
+      if (this.row >= 64) {
+        this.row = 0;
+        this.pos = (this.pos + 1) % this.mod.songLength;
+      }
+    }
+    if (this.onTrack) this.onTrack(this.pos, this.row);
+  }
+
+  _processRow(t) {
+    const pat = this.mod.patterns[this.mod.orderTable[this.pos]];
+    if (!pat) return;
+    const row = pat[this.row];
+    if (!row) return;
+
+    for (let ci = 0; ci < 4; ci++) {
+      const note = row[ci];
+      const ch   = this.channels[ci];
+      const sn   = note.sample;
+      let   per  = note.period;
+      const ecmd = (note.effect >> 8) & 0xF;
+      const epar =  note.effect       & 0xFF;
+
+      ch.effect = ecmd; ch.effectParam = epar; ch.noteDelay = 0;
+
+      if (sn > 0 && sn <= 31) {
+        const inst = this.mod.instruments[sn - 1];
+        ch.sample   = sn;
+        ch.volume   = inst.volume;
+        ch.finetune = inst.finetune;
+      }
+
+      // Pre-process effects that influence note triggering
+      switch (ecmd) {
+        case 0x3: case 0x5:               // Tone portamento
+          if (per) ch.portaTarget = per;
+          if (ecmd === 0x3 && epar) ch.portaSpeed = epar;
+          per = 0; break;
+        case 0x9:                          // Sample offset
+          ch.sampleOffset = epar << 8; break;
+        case 0xC:                          // Set volume
+          ch.volume = Math.min(64, epar); break;
+        case 0xF:                          // Set speed / tempo
+          if (epar > 0) { if (epar < 32) this.speed = epar; else this.tempo = epar; } break;
+        case 0xB:                          // Position jump
+          this.jumpPos = Math.min(epar, this.mod.songLength - 1);
+          this.jumpRow = 0; break;
+        case 0xD: {                        // Pattern break
+          const br = ((epar >> 4) * 10) + (epar & 0xF);
+          this.jumpPos = (this.pos + 1) >= this.mod.songLength ? 0 : this.pos + 1;
+          this.jumpRow = Math.min(br, 63); break;
+        }
+        case 0xE: {
+          const ex = epar >> 4, ey = epar & 0xF;
+          if (ex === 0xD) { ch.noteDelay = ey; ch.delayedPeriod = per; per = 0; }
+          else if (ex === 0xE) this.patternDelay = ey;
+          else if (ex === 0x6) {
+            if (ey === 0) ch.loopStart = this.row;
+            else {
+              if (ch.loopCount < 0) { ch.loopCount = ey; this.jumpPos = this.pos; this.jumpRow = ch.loopStart; }
+              else if (--ch.loopCount > 0) { this.jumpPos = this.pos; this.jumpRow = ch.loopStart; }
+              else ch.loopCount = -1;
+            }
+          }
+          else if (ex === 0x1) { ch.period = Math.max(113, (ch.period||428) - ey); ch.activePeriod = ch.period; this._pitch(ci, t); }
+          else if (ex === 0x2) { ch.period = Math.min(856, (ch.period||428) + ey); ch.activePeriod = ch.period; this._pitch(ci, t); }
+          else if (ex === 0xA) { ch.volume = Math.min(64, ch.volume + ey); }
+          else if (ex === 0xB) { ch.volume = Math.max(0,  ch.volume - ey); }
+          break;
+        }
+      }
+
+      if (per > 0) {
+        ch.period = per;
+        ch.activePeriod = this._ftPeriod(per, ch.finetune);
+        ch.vibratoPos = 0;
+        if (ch.sample > 0) { this._trigger(ci, t, ch.sampleOffset); ch.sampleOffset = 0; }
+      }
+      if (ch.gainNode) ch.gainNode.gain.setValueAtTime(ch.volume / 64, t);
+    }
+  }
+
+  _processFx(t) {
+    for (let ci = 0; ci < 4; ci++) {
+      const ch  = this.channels[ci];
+      const cmd = ch.effect, par = ch.effectParam;
+
+      switch (cmd) {
+        case 0x0: // Arpeggio
+          if (par) {
+            const steps = [0, par >> 4, par & 0xF];
+            const step  = steps[this.tick % 3];
+            const idx   = Math.min(this._perIdx(ch.period) + step, BASE_PERIODS.length - 1);
+            if (ch.node) ch.node.playbackRate.setValueAtTime(C2_PERIOD / BASE_PERIODS[idx], t);
+          }
+          break;
+        case 0x1: ch.period = Math.max(113, ch.period - par); ch.activePeriod = ch.period; this._pitch(ci, t); break;
+        case 0x2: ch.period = Math.min(856, ch.period + par); ch.activePeriod = ch.period; this._pitch(ci, t); break;
+        case 0x3: case 0x5:
+          if (ch.portaTarget && ch.period) {
+            if (ch.period < ch.portaTarget) ch.period = Math.min(ch.portaTarget, ch.period + ch.portaSpeed);
+            else                            ch.period = Math.max(ch.portaTarget, ch.period - ch.portaSpeed);
+            ch.activePeriod = ch.period; this._pitch(ci, t);
+          }
+          if (cmd === 0x5) this._volSlide(ci, par, t);
+          break;
+        case 0x4: case 0x6:
+          if (cmd === 0x4 && par) {
+            if (par >> 4) ch.vibratoSpeed = par >> 4;
+            if (par & 0xF) ch.vibratoDepth = par & 0xF;
+          }
+          ch.vibratoPos = (ch.vibratoPos + ch.vibratoSpeed) & 63;
+          {
+            const delta = Math.round(Math.sin(ch.vibratoPos * Math.PI * 2 / 64) * ch.vibratoDepth);
+            ch.activePeriod = Math.max(113, ch.period + delta);
+            this._pitch(ci, t);
+          }
+          if (cmd === 0x6) this._volSlide(ci, par, t);
+          break;
+        case 0xA: this._volSlide(ci, par, t); break;
+        case 0xE: {
+          const ex = par >> 4, ey = par & 0xF;
+          if (ex === 0x9 && ey > 0 && this.tick > 0 && this.tick % ey === 0) this._trigger(ci, t, 0);
+          else if (ex === 0xC && this.tick === ey && ch.gainNode) ch.gainNode.gain.setValueAtTime(0, t);
+          else if (ex === 0xD && this.tick === ey && ch.noteDelay) {
+            ch.noteDelay = 0;
+            if (ch.delayedPeriod) { ch.period = ch.delayedPeriod; ch.activePeriod = this._ftPeriod(ch.delayedPeriod, ch.finetune); ch.delayedPeriod = 0; }
+            if (ch.sample > 0) this._trigger(ci, t, 0);
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  _volSlide(ci, par, t) {
+    const ch = this.channels[ci];
+    const up = par >> 4, dn = par & 0xF;
+    if (up) ch.volume = Math.min(64, ch.volume + up);
+    else if (dn) ch.volume = Math.max(0, ch.volume - dn);
+    if (ch.gainNode) ch.gainNode.gain.setValueAtTime(ch.volume / 64, t);
+  }
+
+  _ftPeriod(period, ft) {
+    if (!ft) return period;
+    return Math.round(period * Math.pow(2, -ft / 96));
+  }
+
+  _perIdx(period) {
+    let best = 0, bestDiff = Infinity;
+    for (let i = 0; i < BASE_PERIODS.length; i++) {
+      const d = Math.abs(BASE_PERIODS[i] - period);
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    }
+    return best;
+  }
+
+  _trigger(ci, t, offset) {
+    const ch  = this.channels[ci];
+    if (ch.sample <= 0 || ch.sample > 31) return;
+    const buf  = this.sampleBuffers[ch.sample - 1];
+    const inst = this.mod.instruments[ch.sample - 1];
+    if (!buf || !inst) return;
+
+    this._stopCh(ch);
+
+    const gain   = this.actx.createGain();
+    gain.gain.setValueAtTime(ch.volume / 64, t);
+
+    const pan    = this.actx.createStereoPanner();
+    pan.pan.value = this.panning[ci] ?? 0;
+
+    gain.connect(pan); pan.connect(this.masterGain);
+
+    const src = this.actx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = C2_PERIOD / Math.max(1, ch.activePeriod || ch.period || C2_PERIOD);
+
+    if (inst.repeatLength > 2) {
+      src.loop = true;
+      src.loopStart = inst.repeatStart  / C2_FREQ;
+      src.loopEnd   = (inst.repeatStart + inst.repeatLength) / C2_FREQ;
+    }
+
+    src.connect(gain);
+    const startAt = Math.max(this.actx.currentTime, t);
+    const offSec  = offset > 0 ? Math.min(offset / C2_FREQ, buf.duration * 0.95) : 0;
+    src.start(startAt, offSec);
+
+    ch.node = src; ch.gainNode = gain;
+    ch.vibratoPos = 0;
+  }
+
+  _pitch(ci, t) {
+    const ch = this.channels[ci];
+    if (!ch.node) return;
+    ch.node.playbackRate.setValueAtTime(C2_PERIOD / Math.max(1, ch.activePeriod || ch.period), t);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DEMO GRAPHICS
+// ═══════════════════════════════════════════════════════════════
+
+// ── Starfield ──────────────────────────────────────────────────
+function makeStars(n, w, h) {
+  return Array.from({ length: n }, () => ({
+    x:     Math.random() * w,
+    y:     Math.random() * h,
+    size:  Math.random() < 0.2 ? 2 : 1,
+    alpha: 0.3 + Math.random() * 0.7,
+    speed: 0.4 + Math.random() * 2.5,
+    phase: Math.random() * Math.PI * 2,
+  }));
+}
+
+// ── Synthwave grid ─────────────────────────────────────────────
+function drawGrid(ctx, gy, W, H, t, beat) {
+  const b = beat ?? 0;   // 0..1
+
+  // Dark gradient behind the grid
+  const bg = ctx.createLinearGradient(0, gy - 30, 0, gy + H);
+  bg.addColorStop(0,    '#070025');
+  bg.addColorStop(0.35, '#100038');
+  bg.addColorStop(1,    '#050010');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, gy - 30, W, H + 30);
+
+  // Horizon glow — expands and brightens on beat
+  const hGlow  = 18 + b * 40;
+  const hAlpha = (0.55 + b * 0.7).toFixed(2);
+  const hg = ctx.createLinearGradient(0, gy - hGlow, 0, gy + hGlow);
+  hg.addColorStop(0,   'rgba(0,200,255,0)');
+  hg.addColorStop(0.5, `rgba(0,200,255,${hAlpha})`);
+  hg.addColorStop(1,   'rgba(0,200,255,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0, gy - hGlow, W, hGlow * 2);
+
+  // Beat flash — white burst right at the horizon on strong hits
+  if (b > 0.35) {
+    const flash = (b - 0.35) / 0.65;
+    ctx.fillStyle = `rgba(180,240,255,${(flash * 0.35).toFixed(2)})`;
+    ctx.fillRect(0, gy - 4, W, 8);
+  }
+
+  // Neon retro stripes — brighten with beat
+  const bs = 1 + b * 1.4;
+  const stripes = [
+    [gy -  2, 2, `rgba(0,${Math.round(80*bs)},${Math.round(180*bs)},0.9)`],
+    [gy -  6, 3, `rgba(0,${Math.round(50*bs)},${Math.round(140*bs)},0.8)`],
+    [gy - 11, 4, `rgba(${Math.round(30*bs)},0,${Math.round(110*bs)},0.85)`],
+    [gy - 17, 5, `rgba(${Math.round(100*bs)},0,${Math.round(160*bs)},0.7)`],
+  ];
+  for (const [sy, sh, sc] of stripes) {
+    ctx.fillStyle = sc; ctx.fillRect(0, sy, W, sh);
+  }
+
+  // Clip to grid rectangle
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, gy, W, H); ctx.clip();
+
+  const vpX = W / 2, vpY = gy;
+  const speed = (t * 0.000028) % 1;
+
+  // Moving horizontal lines — brighter and thicker on beat
+  for (let i = 0; i <= 22; i++) {
+    const frac = ((i / 22) + speed) % 1;
+    const y    = vpY + Math.pow(frac, 1.65) * H;
+    const a    = Math.min(1, (0.08 + 0.72 * frac) * (1 + b * 1.6));
+    const r    = Math.min(255, Math.floor((40  + 180 * frac) * (1 + b * 0.5)));
+    const bv   = Math.min(255, Math.floor((210 -  90 * frac) * (1 + b * 0.4)));
+    ctx.strokeStyle = `rgba(${r},0,${bv},${a.toFixed(2)})`;
+    ctx.lineWidth   = Math.max(0.4, frac * 2.2 + b * 2.5);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Perspective vertical lines — pulse pink on beat
+  const NV = 20;
+  for (let i = 0; i <= NV; i++) {
+    const frac  = i / NV;
+    const bx    = frac * W;
+    const tx    = vpX + (bx - vpX) * 0.02;
+    const base  = 0.08 + 0.32 * (1 - Math.abs(frac - 0.5) * 2 + 0.5);
+    const alpha = Math.min(1, base * (1 + b * 2.2));
+    const pink  = Math.min(255, Math.round(210 + b * 45));
+    ctx.strokeStyle = `rgba(${pink},${Math.round(40 + b*60)},180,${alpha.toFixed(2)})`;
+    ctx.lineWidth   = 0.9 + b * 1.8;
+    ctx.beginPath(); ctx.moveTo(tx, vpY); ctx.lineTo(bx, gy + H); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ── Big pixel logo ─────────────────────────────────────────────
+function drawLogo(ctx, W, H, t) {
+  const LINE1 = 'ZEALAND';
+  const LINE2 = 'BYTE DIV';
+  const maxW  = Math.max(LINE1.length, LINE2.length);
+
+  // Scale to fit ~80% of canvas width, max out at ~40% of canvas height / 2 lines
+  const scW = Math.floor(W * 0.82 / (maxW * 6));
+  const scH = Math.floor(H * 0.40 / (7 * 2 + 3));
+  const sc  = Math.max(3, Math.min(scW, scH));
+
+  const charH = 7 * sc;
+  const gap   = sc * 2;
+  const totalH = charH * 2 + gap;
+
+  const w1 = gfxWidth(LINE1, sc);
+  const w2 = gfxWidth(LINE2, sc);
+  const x1 = (W - w1) / 2;
+  const x2 = (W - w2) / 2;
+  const bob = Math.sin(t * 0.00075) * 4;
+  const y1  = (H * 0.52 - totalH) / 2 + bob;
+  const y2  = y1 + charH + gap;
+
+  // Draw glow passes (back-to-front)
+  ctx.save();
+  const passes = [
+    { blur: 42, color: 'rgba(255,10,120,0.18)' },
+    { blur: 22, color: 'rgba(255,30,140,0.32)' },
+    { blur: 10, color: 'rgba(255,80,170,0.55)' },
+    { blur:  3, color: '#ff80c8' },
+  ];
+  for (const { blur, color } of passes) {
+    ctx.shadowBlur  = blur;
+    ctx.shadowColor = '#ff1493';
+    gfxText(ctx, LINE1, x1, y1, sc, color);
+    gfxText(ctx, LINE2, x2, y2, sc, color);
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCROLLER
+// ═══════════════════════════════════════════════════════════════
+const SCROLL_TEXT =
+  '  * ZEALAND BYTE DIVISION PRESENTS THE ULTIMATE CRACKER INTRO *  ' +
+  '  THIS PRODUCTION WAS HAND-CODED WITH PURE ASCII POWER AND ZERO BRAIN DAMAGE!  ' +
+  '  GREETS FLY OUT TO: RAZOR 1911  FAIRLIGHT  FUTURE CREW  SKIDROW  PARADOX  ' +
+  'CLASS  TRITON  QUARTEX  ECLIPSE  PRESTIGE  AND ALL OTHER TRUE SCENERS!  ' +
+  '  KEYS: [N] NEXT MOD  [P] PREV MOD  [M] MUTE  ' +
+  '  LONG LIVE THE AMIGA!  KEEP THE SCENE ALIVE!  100% ASCII POWER!  * ';
+
+let scrollX = 0;
+let lastTs  = 0;
+
+function drawScroller(ctx, W, H, ts) {
+  const dt  = ts - lastTs; lastTs = ts;
+  const sc  = 4;
+  const cW  = 6 * sc;
+  const cH  = 7 * sc;
+  const baseY = (H - cH) / 2;
+
+  // Advance scroll proportional to real time (targets ~90px/s at 60fps)
+  scrollX -= Math.min(dt * 0.09, 6);
+  const totalW = SCROLL_TEXT.length * cW;
+  if (scrollX < -totalW) scrollX += totalW;
+
+  ctx.fillStyle = '#020010';
+  ctx.fillRect(0, 0, W, H);
+
+  for (let rep = 0; rep < 3; rep++) {
+    const baseX = scrollX + rep * totalW;
+    if (baseX > W + cW || baseX + totalW < -cW) continue;
+
+    for (let i = 0; i < SCROLL_TEXT.length; i++) {
+      const cx = baseX + i * cW;
+      if (cx + cW < 0 || cx > W) continue;
+
+      // Sine wave on Y axis
+      const wave  = Math.sin(cx * 0.014 + ts * 0.0026) * (H * 0.30);
+      // Colour wave: warm gold → amber
+      const phase = Math.sin(cx * 0.009 + ts * 0.0018) * 0.5 + 0.5;
+      const r     = Math.round(210 + 45 * phase);
+      const g     = Math.round(140 + 60 * phase);
+      gfxChar(ctx, SCROLL_TEXT[i], cx, baseY + wave, sc, `rgb(${r},${g},0)`);
+    }
+  }
+
+  // Fade edges
+  const fade = 80;
+  for (const [fx, fw, dir] of [[0, fade, 1], [W - fade, fade, -1]]) {
+    const gr = ctx.createLinearGradient(fx, 0, fx + fw * dir, 0);
+    gr.addColorStop(dir > 0 ? 0 : 1, '#020010');
+    gr.addColorStop(dir > 0 ? 1 : 0, 'rgba(2,0,16,0)');
+    ctx.fillStyle = gr; ctx.fillRect(fx, 0, fw, H);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN RENDER
+// ═══════════════════════════════════════════════════════════════
+function renderMain(ctx, W, H, stars, t, beat) {
+  ctx.fillStyle = '#050010';
+  ctx.fillRect(0, 0, W, H);
+
+  // Starfield occupies upper ~52% of canvas
+  const starH = H * 0.52;
+  for (const s of stars) {
+    const blink = 0.35 + 0.65 * Math.abs(Math.sin(s.phase + t * s.speed * 0.001));
+    const a     = (s.alpha * blink).toFixed(2);
+    ctx.fillStyle = `rgba(200,220,255,${a})`;
+    ctx.fillRect(s.x, s.y, s.size, s.size);
+  }
+
+  // Logo in starfield area
+  drawLogo(ctx, W, H, t);
+
+  // Synthwave grid in lower ~48%
+  drawGrid(ctx, H * 0.52, W, H * 0.48, t, beat);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  APPLICATION
+// ═══════════════════════════════════════════════════════════════
+const MODS = [
+  { file: 'mods/hardwired-intro.mod', label: 'HARDWIRED'      },
+  { file: 'mods/in-the-kitchen.mod',  label: 'IN THE KITCHEN' },
+  { file: 'mods/introfronty.mod',     label: 'INTRO FRONTY'   },
+  { file: 'mods/monday.mod',          label: 'MONDAY'         },
+  { file: 'mods/space-debris.mod',    label: 'SPACE DEBRIS'   },
+];
+
+const mainCanvas   = document.getElementById('maincanvas');
+const mainCtx      = mainCanvas.getContext('2d');
+const scrollCanvas = document.getElementById('scrollcanvas');
+const scrollCtx    = scrollCanvas.getContext('2d');
+const modNameEl    = document.getElementById('modname');
+
+let actx       = null;
+let player     = null;
+let modIdx     = 0;
+let stars      = [];
+let muted      = false;
+let started    = false;
+
+function resize() {
+  const mw = document.getElementById('mainwrap');
+  mainCanvas.width  = mw.clientWidth;
+  mainCanvas.height = mw.clientHeight;
+
+  const sw = document.getElementById('scrollwrap');
+  scrollCanvas.width  = sw.clientWidth;
+  scrollCanvas.height = sw.clientHeight;
+
+  stars = makeStars(180, mainCanvas.width, mainCanvas.height * 0.52);
+}
+
+window.addEventListener('resize', resize);
+
+let beatEnergy = 0;
+
+// Animation loop
+function loop(ts) {
+  requestAnimationFrame(loop);
+
+  // Sample bass energy and apply smooth decay
+  if (player && started) {
+    const raw = player.getBeat();
+    beatEnergy = raw > beatEnergy ? raw : beatEnergy * 0.88;
+  } else {
+    beatEnergy *= 0.88;
+  }
+
+  renderMain(mainCtx, mainCanvas.width, mainCanvas.height, stars, ts, beatEnergy);
+  drawScroller(scrollCtx, scrollCanvas.width, scrollCanvas.height, ts);
+}
+
+async function loadMod(idx) {
+  if (!player) return;
+  modNameEl.textContent = 'LOADING...';
+  try {
+    const res = await fetch(MODS[idx].file);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const raw = await res.arrayBuffer();
+    const mod = parseMod(new Uint8Array(raw));
+    player.load(mod).play();
+    modNameEl.textContent = `▶  ${MODS[idx].label}  [${idx + 1}/${MODS.length}]`;
+    modIdx = idx;
+  } catch (e) {
+    console.error('MOD load failed:', e);
+    modNameEl.textContent = 'LOAD ERROR';
+  }
+}
+
+async function startAudio() {
+  if (started) return;
+  started = true;
+  modNameEl.classList.remove('unstarted');
+
+  actx   = new (window.AudioContext || window.webkitAudioContext)();
+  await actx.resume();
+  player = new ModPlayer(actx);
+  await loadMod(0);
+}
+
+// Graphics start immediately
+resize();
+requestAnimationFrame(loop);
+modNameEl.textContent = '▶  CLICK FOR MUSIC';
+modNameEl.classList.add('unstarted');
+
+modNameEl.addEventListener('click', async () => {
+  if (!started) {
+    await startAudio();
+  } else {
+    await loadMod((modIdx + 1) % MODS.length);
+  }
+});
+
+document.addEventListener('keydown', async (e) => {
+  if (!started) { await startAudio(); return; }
+  switch (e.key.toLowerCase()) {
+    case 'n': await loadMod((modIdx + 1) % MODS.length); break;
+    case 'p': await loadMod((modIdx - 1 + MODS.length) % MODS.length); break;
+    case 'm':
+      muted = !muted;
+      if (player) player.setVolume(muted ? 0 : 0.7);
+      modNameEl.style.color = muted ? '#888' : '#ffcc00';
+      break;
+  }
+});
+</script>
+</body>
+</html>
