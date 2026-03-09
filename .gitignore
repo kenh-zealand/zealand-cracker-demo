@@ -9,3 +9,8 @@ Thumbs.db
 # Editor
 .vscode/
 *.swp
+
+# Native build outputs
+native/*.exe
+native/SDL2.dll
+
