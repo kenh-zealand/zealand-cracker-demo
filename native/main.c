@@ -17,8 +17,8 @@
 #include "mod_player.h"
 
 // ── Config ───────────────────────────────────────────────────────
-#define WIN_W        1024
-#define WIN_H         600
+static int win_w = 1024;
+static int win_h = 600;
 #define TARGET_FPS     60
 #define AUDIO_BUF     512   // frames per audio callback
 
@@ -40,7 +40,7 @@ static SDL_Window   *window   = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture  *screen   = NULL;   // software render target
 static uint32_t     *pixels   = NULL;
-static int           pitch_px = WIN_W;
+static int           pitch_px = 1024;
 
 static ModPlayer  player;
 static ModFile   *current_mod = NULL;
@@ -63,7 +63,7 @@ static const char *SCROLL_TEXT =
     "CLASS  TRITON  QUARTEX  ECLIPSE  PRESTIGE  AND ALL OTHER TRUE SCENERS!  "
     "  KEYS: [N] NEXT MOD  [P] PREV MOD  [M] MUTE  [ESC] QUIT  "
     "  LONG LIVE THE AMIGA!  KEEP THE SCENE ALIVE!  100% C POWER!  * ";
-static float scroll_x    = WIN_W;
+static float scroll_x    = 1024.0f;
 static float scroll_speed = 120.0f;  // pixels/sec
 
 static float beat_visual  = 0.0f;   // smoothed beat for visuals
@@ -90,7 +90,7 @@ static inline uint32_t blend(uint32_t dst, uint32_t src) {
 
 // ── Pixel drawing ─────────────────────────────────────────────────
 static inline void put_pixel(int x, int y, uint32_t c) {
-    if (x < 0 || x >= WIN_W || y < 0 || y >= WIN_H) return;
+    if (x < 0 || x >= win_w || y < 0 || y >= win_h) return;
     pixels[y * pitch_px + x] = blend(pixels[y * pitch_px + x], c);
 }
 
@@ -114,16 +114,16 @@ static void fill_rect(int x, int y, int w, int h, uint32_t c) {
 }
 
 static void draw_hline(int y, uint32_t c) {
-    if (y < 0 || y >= WIN_H) return;
+    if (y < 0 || y >= win_h) return;
     uint32_t *row = pixels + y * pitch_px;
-    for (int x = 0; x < WIN_W; x++) row[x] = blend(row[x], c);
+    for (int x = 0; x < win_w; x++) row[x] = blend(row[x], c);
 }
 
 // ── Font rendering ────────────────────────────────────────────────
 static void draw_text(const char *text, int x, int y, int scale, uint32_t c) {
     int cx = x;
     for (const char *p = text; *p; p++) {
-        font_draw_char(pixels, pitch_px, WIN_H, cx, y, *p, scale, c);
+        font_draw_char(pixels, pitch_px, win_h, cx, y, *p, scale, c);
         cx += 6 * scale;
     }
 }
@@ -141,7 +141,7 @@ static void draw_glow_text(const char *text, int x, int y, int scale,
             if (dx == 0 && dy == 0) continue;
             int cx2 = x;
             for (const char *p = text; *p; p++) {
-                font_draw_char(pixels, pitch_px, WIN_H, cx2+dx, y+dy, *p, scale, glow_color);
+                font_draw_char(pixels, pitch_px, win_h, cx2+dx, y+dy, *p, scale, glow_color);
                 cx2 += 6 * scale;
             }
         }
@@ -153,8 +153,8 @@ static void draw_glow_text(const char *text, int x, int y, int scale,
 static void init_stars(void) {
     srand((unsigned)time(NULL));
     for (int i = 0; i < NUM_STARS; i++) {
-        stars[i].x     = rand() % WIN_W;
-        stars[i].y     = rand() % (int)(WIN_H * 0.52f);
+        stars[i].x     = rand() % win_w;
+        stars[i].y     = rand() % (int)(win_h * 0.52f);
         stars[i].speed = 0.4f + (rand() % 100) / 40.0f;
         stars[i].alpha = 0.3f + (rand() % 70) / 100.0f;
         stars[i].phase = (rand() % 628) / 100.0f;
@@ -175,17 +175,17 @@ static void draw_stars(float t) {
 
 // ── Synthwave grid ────────────────────────────────────────────────
 static void draw_grid(float t, float beat) {
-    int gy  = (int)(WIN_H * 0.52f);
-    int gh  = WIN_H - gy;
+    int gy  = (int)(win_h * 0.52f);
+    int gh  = win_h - gy;
 
     // Background gradient (simple vertical fill)
-    for (int y = gy; y < WIN_H; y++) {
+    for (int y = gy; y < win_h; y++) {
         float frac = (float)(y - gy) / gh;
         uint8_t r = (uint8_t)(7  + (uint8_t)(frac * 3));
         uint8_t b = (uint8_t)(37 - (uint8_t)(frac * 12));
         uint32_t c = rgba(r, 0, b, 255);
         uint32_t *row = pixels + y * pitch_px;
-        for (int x = 0; x < WIN_W; x++) row[x] = c;
+        for (int x = 0; x < win_w; x++) row[x] = c;
     }
 
     // Neon stripes above the grid
@@ -198,7 +198,7 @@ static void draw_grid(float t, float beat) {
     };
     for (int s = 0; s < 4; s++) {
         uint32_t c = rgba(stripes[s].r, stripes[s].g, stripes[s].b, (uint8_t)(stripes[s].a*255));
-        fill_rect(0, stripes[s].y, WIN_W, stripes[s].h, c);
+        fill_rect(0, stripes[s].y, win_w, stripes[s].h, c);
     }
 
     // Horizon glow
@@ -222,7 +222,7 @@ static void draw_grid(float t, float beat) {
     for (int i = 0; i <= 22; i++) {
         float frac = fmodf((float)i / 22.0f + speed, 1.0f);
         int   ly   = gy + (int)(powf(frac, 1.65f) * gh);
-        if (ly < gy || ly >= WIN_H) continue;
+        if (ly < gy || ly >= win_h) continue;
         float a = (0.08f + 0.72f * frac) * (1.0f + beat * 1.6f);
         if (a > 1.0f) a = 1.0f;
         uint8_t rv  = (uint8_t)fminf(255, (40  + 180*frac) * (1+beat*0.5f));
@@ -231,16 +231,16 @@ static void draw_grid(float t, float beat) {
     }
 
     // Perspective vertical lines
-    float vpx = WIN_W * 0.5f;
+    float vpx = win_w * 0.5f;
     for (int i = 0; i <= 20; i++) {
         float frac = (float)i / 20.0f;
-        float bx   = frac * WIN_W;
+        float bx   = frac * win_w;
         float tx   = vpx + (bx - vpx) * 0.02f;
         float base = 0.08f + 0.32f * (1.0f - fabsf(frac - 0.5f) * 2.0f + 0.5f);
         float a    = base * (1.0f + beat * 2.2f); if (a > 1.0f) a = 1.0f;
         uint8_t pink = (uint8_t)fminf(255, 210 + beat * 45);
         uint8_t gmid = (uint8_t)fminf(255, 40  + beat * 60);
-        draw_line((int)tx, gy, (int)bx, WIN_H-1, rgba(pink, gmid, 180, (uint8_t)(a*255)));
+        draw_line((int)tx, gy, (int)bx, win_h-1, rgba(pink, gmid, 180, (uint8_t)(a*255)));
     }
 }
 
@@ -250,8 +250,8 @@ static void draw_logo(float t) {
     const char *LINE2 = "BYTE DIV";
 
     int max_chars = 8; // BYTE DIV
-    int sc = WIN_W * 82 / 100 / (max_chars * 6);
-    int sc2 = (int)(WIN_H * 0.40f) / (7 * 2 + 3);
+    int sc = win_w * 82 / 100 / (max_chars * 6);
+    int sc2 = (int)(win_h * 0.40f) / (7 * 2 + 3);
     if (sc > sc2) sc = sc2;
     if (sc < 3) sc = 3;
 
@@ -261,10 +261,10 @@ static void draw_logo(float t) {
 
     int w1 = text_width(LINE1, sc);
     int w2 = text_width(LINE2, sc);
-    int x1 = (WIN_W - w1) / 2;
-    int x2 = (WIN_W - w2) / 2;
+    int x1 = (win_w - w1) / 2;
+    int x2 = (win_w - w2) / 2;
     float bob = sinf(t * 0.75f) * 4.0f;
-    int y1 = (int)((WIN_H * 0.52f - totalH) / 2.0f + bob);
+    int y1 = (int)((win_h * 0.52f - totalH) / 2.0f + bob);
     int y2 = y1 + ch + gap;
 
     // Glow passes
@@ -278,9 +278,9 @@ static void draw_logo(float t) {
 #define TOPBAR_H 36
 static void draw_topbar(const char *mod_label, int midx, int total) {
     // Background
-    fill_rect(0, 0, WIN_W, TOPBAR_H, rgba(3, 0, 14, 255));
+    fill_rect(0, 0, win_w, TOPBAR_H, rgba(3, 0, 14, 255));
     // Bottom border
-    fill_rect(0, TOPBAR_H-2, WIN_W, 2, rgba(0, 136, 187, 255));
+    fill_rect(0, TOPBAR_H-2, win_w, 2, rgba(0, 136, 187, 255));
 
     // Group name
     draw_text("ZEALAND  BYTE  DIVISION", 12, 10, 2, rgba(0, 170, 221, 255));
@@ -289,7 +289,7 @@ static void draw_topbar(const char *mod_label, int midx, int total) {
     char label[64];
     snprintf(label, sizeof(label), "# %s  [%d/%d]", mod_label, midx+1, total);
     int lw = text_width(label, 1) + 16;
-    int lx = WIN_W - lw - 12;
+    int lx = win_w - lw - 12;
     // Store clickable rect for mouse hit-test
     mod_btn_rect.x = lx - 1; mod_btn_rect.y = 6;
     mod_btn_rect.w = lw + 2; mod_btn_rect.h = TOPBAR_H - 14;
@@ -307,39 +307,39 @@ static void draw_topbar(const char *mod_label, int midx, int total) {
 }
 
 // ── Scroller bar ──────────────────────────────────────────────────
-#define SCROLL_Y   (WIN_H - 56)
+// (win_h - SCROLL_H) computed inline as (win_h - SCROLL_H)
 #define SCROLL_H   56
 static void draw_scroller(float dt) {
     int sc    = 4;
     int char_w = 6 * sc;
     int char_h = 7 * sc;
-    int base_y = SCROLL_Y + (SCROLL_H - char_h) / 2;
+    int base_y = (win_h - SCROLL_H) + (SCROLL_H - char_h) / 2;
 
     scroll_x -= scroll_speed * dt;
     int total_w = (int)(strlen(SCROLL_TEXT) * char_w);
     if (scroll_x < -(float)total_w) scroll_x += (float)total_w;
 
     // Background
-    fill_rect(0, SCROLL_Y, WIN_W, SCROLL_H, rgba(2, 0, 16, 255));
+    fill_rect(0, (win_h - SCROLL_H), win_w, SCROLL_H, rgba(2, 0, 16, 255));
     // Border top
-    fill_rect(0, SCROLL_Y, WIN_W, 2, rgba(0, 136, 187, 255));
+    fill_rect(0, (win_h - SCROLL_H), win_w, 2, rgba(0, 136, 187, 255));
 
     // Draw characters
     for (int rep = 0; rep < 3; rep++) {
         float base_x = scroll_x + rep * total_w;
-        if (base_x > WIN_W + char_w) continue;
+        if (base_x > win_w + char_w) continue;
         if (base_x + total_w < -char_w) continue;
 
         int len = (int)strlen(SCROLL_TEXT);
         for (int i = 0; i < len; i++) {
             float cx = base_x + i * char_w;
-            if (cx + char_w < 0 || cx > WIN_W) continue;
+            if (cx + char_w < 0 || cx > win_w) continue;
 
             float wave  = sinf(cx * 0.014f + SDL_GetTicks() * 0.0026f) * (SCROLL_H * 0.30f);
             float phase = sinf(cx * 0.009f + SDL_GetTicks() * 0.0018f) * 0.5f + 0.5f;
             uint8_t r = (uint8_t)(210 + 45 * phase);
             uint8_t g = (uint8_t)(140 + 60 * phase);
-            font_draw_char(pixels, pitch_px, WIN_H, (int)cx, (int)(base_y + wave),
+            font_draw_char(pixels, pitch_px, win_h, (int)cx, (int)(base_y + wave),
                            SCROLL_TEXT[i], sc, rgba(r, g, 0, 255));
         }
     }
@@ -347,20 +347,20 @@ static void draw_scroller(float dt) {
     // Edge fade (darken leftmost and rightmost columns)
     for (int x = 0; x < 80; x++) {
         uint8_t a = (uint8_t)(255 - x * 3);
-        for (int y = SCROLL_Y; y < WIN_H; y++) {
+        for (int y = (win_h - SCROLL_H); y < win_h; y++) {
             uint32_t c = rgba(2,0,16,a);
             pixels[y*pitch_px + x]           = blend(pixels[y*pitch_px + x], c);
-            pixels[y*pitch_px + (WIN_W-1-x)] = blend(pixels[y*pitch_px + (WIN_W-1-x)], c);
+            pixels[y*pitch_px + (win_w-1-x)] = blend(pixels[y*pitch_px + (win_w-1-x)], c);
         }
     }
 }
 
 // ── Bottom panels ─────────────────────────────────────────────────
-#define PANEL_Y  (TOPBAR_H + (int)((WIN_H - TOPBAR_H - SCROLL_H) * 52 / 100) + (int)((WIN_H - TOPBAR_H - SCROLL_H) * 48 / 100))
+#define PANEL_Y  (TOPBAR_H + (int)((win_h - TOPBAR_H - SCROLL_H) * 52 / 100) + (int)((win_h - TOPBAR_H - SCROLL_H) * 48 / 100))
 static void draw_panels(void) {
-    int py = WIN_H - SCROLL_H - 100;
+    int py = win_h - SCROLL_H - 100;
     int ph = 96;
-    int pw = (WIN_W - 12) / 2;
+    int pw = (win_w - 12) / 2;
 
     for (int p = 0; p < 2; p++) {
         int px = 4 + p * (pw + 4);
@@ -401,7 +401,24 @@ static void audio_callback(void *userdata, uint8_t *stream, int len) {
     SDL_UnlockMutex(audio_mutex);
 }
 
-// ── Load a MOD ────────────────────────────────────────────────────
+// ── Resize handler ────────────────────────────────────────────────
+static void handle_resize(int w, int h) {
+    win_w    = w;
+    win_h    = h;
+    pitch_px = w;
+
+    free(pixels);
+    pixels = (uint32_t*)malloc(w * h * sizeof(uint32_t));
+
+    SDL_DestroyTexture(screen);
+    screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                               SDL_TEXTUREACCESS_STREAMING, w, h);
+
+    // Regenerate stars for new dimensions
+    init_stars();
+    // Keep scroll position valid
+    if (scroll_x > (float)w) scroll_x = (float)w;
+}
 static void load_mod(int idx) {
     SDL_LockMutex(audio_mutex);
     mod_free(current_mod);
@@ -424,17 +441,17 @@ int main(int argc, char *argv[]) {
     window = SDL_CreateWindow(
         "ZEALAND BYTE DIVISION",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        WIN_W, WIN_H, SDL_WINDOW_SHOWN);
+        win_w, win_h, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!window) { fprintf(stderr, "Window: %s\n", SDL_GetError()); return 1; }
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) { fprintf(stderr, "Renderer: %s\n", SDL_GetError()); return 1; }
 
     screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                               SDL_TEXTUREACCESS_STREAMING, WIN_W, WIN_H);
+                               SDL_TEXTUREACCESS_STREAMING, win_w, win_h);
     if (!screen) { fprintf(stderr, "Texture: %s\n", SDL_GetError()); return 1; }
 
-    pixels = (uint32_t*)malloc(WIN_W * WIN_H * sizeof(uint32_t));
+    pixels = (uint32_t*)malloc(win_w * win_h * sizeof(uint32_t));
     if (!pixels) { fprintf(stderr, "OOM\n"); return 1; }
 
     audio_mutex = SDL_CreateMutex();
@@ -470,6 +487,9 @@ int main(int argc, char *argv[]) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) running = 0;
+            if (e.type == SDL_WINDOWEVENT &&
+                e.window.event == SDL_WINDOWEVENT_RESIZED)
+                handle_resize(e.window.data1, e.window.data2);
             if (e.type == SDL_KEYDOWN) {
                 switch (e.key.keysym.sym) {
                     case SDLK_ESCAPE: running = 0; break;
@@ -504,10 +524,10 @@ int main(int argc, char *argv[]) {
         if (beat > 1.0f) beat = 1.0f;
 
         // ── Clear ─────────────────────────────────────────────────
-        memset(pixels, 0x05, WIN_W * WIN_H * sizeof(uint32_t));
+        memset(pixels, 0x05, win_w * win_h * sizeof(uint32_t));
         // Set proper background colour
         uint32_t bg = rgba(5, 0, 16, 255);
-        for (int i = 0; i < WIN_W * WIN_H; i++) pixels[i] = bg;
+        for (int i = 0; i < win_w * win_h; i++) pixels[i] = bg;
 
         // ── Draw ──────────────────────────────────────────────────
         draw_stars(t_sec);
@@ -518,7 +538,7 @@ int main(int argc, char *argv[]) {
         draw_scroller(dt);
 
         // ── Present ───────────────────────────────────────────────
-        SDL_UpdateTexture(screen, NULL, pixels, WIN_W * sizeof(uint32_t));
+        SDL_UpdateTexture(screen, NULL, pixels, win_w * sizeof(uint32_t));
         SDL_RenderCopy(renderer, screen, NULL, NULL);
         SDL_RenderPresent(renderer);
     }
