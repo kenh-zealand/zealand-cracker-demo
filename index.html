@@ -105,7 +105,8 @@ html, body {
       <div class="pbody">
         THIS RELEASE CRACKED AND FIXED<br>
         BY ZEALAND BYTE DIVISION!<br>
-        100% WORKING &middot; NO TRAINERS
+        100% WORKING &middot; NO TRAINERS<br>
+        <span id="verline"></span>
       </div>
     </div>
     <div class="panel">
@@ -121,6 +122,10 @@ html, body {
 
 <script>
 'use strict';
+
+const DEMO_VERSION = 'V1.2';
+const DEMO_DATE    = new Date().toLocaleDateString('da-DK', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase();
+document.getElementById('verline').textContent = `VER ${DEMO_VERSION} \u00b7 ${DEMO_DATE}`;
 
 // ═══════════════════════════════════════════════════════════════
 //  PIXEL FONT  — 5×7 glyphs, 8 bytes each (7 rows + 1 pad)
